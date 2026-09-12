@@ -6,8 +6,8 @@ Tank mitigation &amp; incoming-damage analysis addon for VanillaPlus /w many fea
 1. Remove or replace the previous `MainTank`, `MainTank_Archive`, and `MainTank_History` addon folders.
 2. Extract the 3 folders `MainTank`, `MainTank_Archive`, and `MainTank_History` into `Interface\\AddOns\\`.
 3. Restart World of Warcraft or reload the UI.
-<img width="986" height="632" alt="image" src="https://github.com/user-attachments/assets/14844743-588d-4328-a5a6-f7ceba35ce51" />
+<img width="986" height="654" alt="image" src="https://github.com/user-attachments/assets/5e0ef750-f551-4d77-9958-e2095adcb5e6" />
+
 
 ## UI Picture
-<img width="388" height="300" alt="pfUI_MainTank" src="https://github.com/user-attachments/assets/658d494a-dc78-448d-842a-6d0359c0c96e" />
-
+<img width="392" height="306" alt="image" src="https://github.com/user-attachments/assets/b71d9c3f-fe1d-4c4a-ba5b-dddfe663f182" />
