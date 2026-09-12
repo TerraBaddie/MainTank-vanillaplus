@@ -10,4 +10,7 @@ Tank mitigation &amp; incoming-damage analysis addon for VanillaPlus /w many fea
 
 
 ## UI Picture
-<img width="392" height="306" alt="image" src="https://github.com/user-attachments/assets/b71d9c3f-fe1d-4c4a-ba5b-dddfe663f182" />
+<img width="394" height="304" alt="image" src="https://github.com/user-attachments/assets/e8dcf1a4-2c34-497a-a6f7-dea80f9e8527" />
+<img width="394" height="304" alt="image" src="https://github.com/user-attachments/assets/4b0f29ab-daf5-4f0c-8021-058b8e850fb4" />
+<img width="394" height="304" alt="image" src="https://github.com/user-attachments/assets/7fc17ebb-dc6f-434a-8540-0d1a921ac313" />
+
