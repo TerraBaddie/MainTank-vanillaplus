@@ -1,3 +1,51 @@
+MainTank v1.2.65-VP3 VP3_LAYEREDSTOP3
+========================================
+
+WHAT VP3_LAYEREDSTOP3 FIXES
+---------------------------
+- Ports the proven LAYEREDSTOP2/LAYEREDSTOP3 accounting hardening to the
+  VanillaPlus repository WITHOUT importing Project Legacy mechanics.
+- Dodge, Parry, and Miss remain pure avoidance: all estimated RAW is credited
+  to the avoidance outcome and Armor/DR/Block receive zero credit.
+- Full Block remains a LANDED layered outcome: Flat DR -> percent DR -> Armor
+  -> Full Block remainder. Partial Block remains ordinary landed DAMAGE math.
+- Dual-wield Full Block now tests the captured MH and OH UnitDamage ranges as
+  separate ranges. If Block Value + earlier mitigation proves only one hand can
+  have produced the Full Block, that hand's feasible range is used instead of
+  the generic combined MH/OH average.
+- Finalized outcome events are immutable only after the accounting invariant is
+  proven: RAW ~= Taken + Flat DR + %DR + Armor + Block + Resist + Absorb +
+  Avoidance (rounding tolerance only).
+- Fixes the historical RC6q mutation path: RC6_SumEventDR and surviving legacy
+  display/summary callers now route through the FINAL RC6B attribution gate.
+  The first-generation RC6 mutator can no longer restore old RAW / zero DR on a
+  finalized Full Block after Timeline initially recorded the correct result.
+- Timeline normalization happens before RecordEvent stores/builds buckets, so
+  Timeline, Events, Pie, Main, Compare, and FINALAGG1 consume one final event.
+- Archive persistence now retains rawHintOHLow/rawHintOHHigh so hand-aware Full
+  Block logic remains valid after combat and /reload.
+- Adds Modules\VanillaPlus.lua as a load-last explicit home for VanillaPlus-only
+  rules, mirroring the separate Project Legacy repository's flavor module.
+- VanillaPlus mechanics are preserved: 10 STR = 1 Block Value, VanillaPlus
+  Sanctuary/Guardian's Favor behavior, and all existing VP DR talents/items are
+  unchanged by this patch.
+
+ACCOUNTING MODEL
+----------------
+Pure avoidance:
+  RAW = Avoidance; Taken = 0; Armor/DR/Block/Resist/Absorb = 0.
+
+Landed Full Block:
+  RAW = Flat DR + percent DR + Armor + Full Block + Taken(0).
+
+Ordinary landed hit / Partial Block:
+  RAW = Flat DR + percent DR + Armor + Block + Resist + Absorb + Taken.
+
+VERSION LOCK
+------------
+MainTank, MainTank_Archive, and MainTank_History all report package version
+1.2.65-VP3.
+
 MainTank v1.2.64 LAYEREDSTOP1
 ==============================
 
@@ -2680,6 +2728,10 @@ RC6r - Live Updating Pie Chart
 - Uses the same event-driven concept as Timeline but batches Pie redraws to at most roughly four times per second because pie rendering is heavier.
 - MTPie reuses existing textures rather than continuously creating new frames/textures.
 - Also corrected school-specific Flat DR aggregation to use the final authoritative RC6 attribution path.
+- Historical lesson (closed by VP3_LAYEREDSTOP3): RC6r corrected the final totals,
+  but RC6q's older RC6_SumEventDR wrapper still remained in the call chain and
+  could mutate an already-finalized terminal outcome. Final totals and mutating
+  event attribution must always use the same final RC6B gate.
 - This is one of the major quality-of-life milestones of the 1.0 line: the mitigation breakdown visibly changes while the fight is happening.
 
 RC6q - School-Specific Flat DR Aggregation
