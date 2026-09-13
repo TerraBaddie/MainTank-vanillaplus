@@ -3,7 +3,7 @@
 ## Notes: Required MainTank companion: lightweight long-term History storage (64 summaries max).
 ## Author: TerraBaddie & OpenAI
 ## Dependencies: MainTank
-## Version: 1.2.65-VP3
+## Version: 1.2.66-VP4
 ## SavedVariables: MainTankHistoryDB
 
 MainTank_History.lua
