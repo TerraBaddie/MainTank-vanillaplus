@@ -1,3 +1,20 @@
+MainTank VanillaPlus TLP2O1 - Overall Timeline saved-bucket parity TEST
+======================================================================
+- TLP2's per-second event index is incomplete for older Overall combat seconds:
+  historical fight events are deliberately pruned while finalized Overall
+  timeline buckets stay persisted. Bars draw from the saved bucket correctly,
+  but TLP2's event-only tooltip showed zero for those historic seconds.
+- TLP2O1 takes the saved Overall bucket as authoritative for RAW, Physical,
+  Magic, Taken, Armor, Avoidance, Block, Resist, Absorb and event count.
+- Page bounds now include saved Overall buckets even when runtime events end
+  sooner or have been trimmed. Never changes saved totals or context handling.
+- For buckets with no retained detailed events, show explicit summary-only
+  tooltip values, without invented Dodge/Parry/Miss/DR sub-breakdowns.
+- Incomplete runtime event details cannot overwrite the persisted bucket.
+- TLP2 cache and arrow redraw optimization remains intact; Lua 5.0 only.
+- No changes to MainTank/Archive/History data retention or startup ordering.
+- TEST branch pending in-game Overall RAW/Physical/Magic and /reload parity.
+
 MainTank VanillaPlus TLP2 - Timeline redraw/caching investigation
 ===========================================================
 - TLP1 reduced repeated per-bar event scans but failed in the 27-mob stress test.
