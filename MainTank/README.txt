@@ -1,3 +1,19 @@
+MainTank VanillaPlus TLP2 - Timeline redraw/caching investigation
+===========================================================
+- TLP1 reduced repeated per-bar event scans but failed in the 27-mob stress test.
+- Root cause still present: RC6's GetDisplayTimeline rebuilds and rechecks
+  every attributed event on every Timeline arrow click/redraw.
+- TLP2 memoizes the original authoritative RC6 timeline per stable display
+  event list/view, and per-second RC6 detail results for repeated pages/hovers.
+- Live-only redraw is rate-limited to 0.25s; combat event recording unchanged.
+- Runtime-only caches are freed when Timeline hides.
+- /run MainTank:PrintTimelinePerf() prints draw/build/cache counters and
+  elapsed duration of the latest completed Timeline update.
+- TLP2 is a draft test, not a release. Test with the 688K 27-mob saved fight,
+  minute arrows, hover, and /reload; compare RAW/PHYSICAL/MAGIC results.
+- Still uses Lua 5.0-era syntax, table.getn, Frame scripts and Blizzard 1.12 UI.
+- No combat parser, RC6 algorithm, SI2/DC2, SavedVariables or retention edits.
+
 MainTank VanillaPlus TLP1 - Timeline performance test branch
 ==============================================================
 - UI/TimelinePerformance.lua indexes visible Timeline events by second before the
