@@ -1,3 +1,36 @@
+MainTank VanillaPlus TLP2 - Timeline redraw/caching investigation
+===========================================================
+- TLP1 reduced repeated per-bar event scans but failed in the 27-mob stress test.
+- Root cause still present: RC6's GetDisplayTimeline rebuilds and rechecks
+  every attributed event on every Timeline arrow click/redraw.
+- TLP2 memoizes the original authoritative RC6 timeline per stable display
+  event list/view, and per-second RC6 detail results for repeated pages/hovers.
+- Live-only redraw is rate-limited to 0.25s; combat event recording unchanged.
+- Runtime-only caches are freed when Timeline hides.
+- /run MainTank:PrintTimelinePerf() prints draw/build/cache counters and
+  elapsed duration of the latest completed Timeline update.
+- TLP2 is a draft test, not a release. Test with the 688K 27-mob saved fight,
+  minute arrows, hover, and /reload; compare RAW/PHYSICAL/MAGIC results.
+- Still uses Lua 5.0-era syntax, table.getn, Frame scripts and Blizzard 1.12 UI.
+- No combat parser, RC6 algorithm, SI2/DC2, SavedVariables or retention edits.
+
+MainTank VanillaPlus TLP1 - Timeline performance test branch
+==============================================================
+- UI/TimelinePerformance.lua indexes visible Timeline events by second before the
+  existing 60-bar redraw. The existing RC6 details and attribution methods are
+  preserved; they receive only the matching second's events during that bar.
+- Outside a one-second Timeline query, GetDisplayEvents remains unchanged.
+- Full event lists, fight totals, mitigation, Details, Pie, Archive/History
+  storage, saved-variable schema, live parser, SI2/DC2 restore are unchanged.
+- The temporary selected-minute index is released when Timeline is hidden.
+- OBS 27-mob 688K-damage stress reproduction: visible near-identical frame
+  stalls near 12.45, 17.32, 27.78, 37.75, and 39.53 seconds (~0.9s each).
+- Synthetic Lua regression: 4,200 events, 60 bars, simulated nested DR pass:
+  same per-minute RAW across five pages, 504,000 event visits reduced to
+  ~2,100 per populated minute; full accessor and cleanup tested.
+- TEST BUILD ONLY: in-game VanillaPlus 1.12.1 stress validation still required.
+- No package version bump until the change passes real-world regression.
+
 MainTank v1.2.65-VP3 VP3_LAYEREDSTOP3
 ========================================
 
