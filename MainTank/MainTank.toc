@@ -48,3 +48,4 @@ UI\ExportPolish.lua
 Core\Release.lua
 Modules\VanillaPlus.lua
 Modules\TooltipSafe.lua
+UI\TimelinePerformance.lua
