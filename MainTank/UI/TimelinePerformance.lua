@@ -1,4 +1,4 @@
--- MainTank VanillaPlus TLP2 - cached Timeline view/index/details
+-- MainTank VanillaPlus TLP2O1 - Overall Timeline saved-bucket parity
 -- Lua 5.0 / WoW 1.12.1 only. Presentation-only. No SavedVariables changes.
 -- Loaded last: preserves all existing RC6 attribution/tooltip calculations.
 -- TLP1 missed the full GetDisplayTimeline RC6 rebuild on every arrow/page.
@@ -20,7 +20,7 @@ MT.tlpStats = {draws=0, indexBuilds=0, timelineBuilds=0,
                timelineHits=0, detailsBuilds=0, detailsHits=0,
                lastSeconds=0, lastEventCount=0, lastIndexMs=0,
                lastTimelineMs=0, lastDetailsMs=0, lastTotalMs=0,
-               slowestTotalMs=0}
+               slowestTotalMs=0, overallSummaryBars=0}
 
 local function TLP_Clear(owner)
     owner.tlpCache = nil
@@ -40,15 +40,24 @@ end
 local function TLP_Ensure(owner, events)
     local n = table.getn(events)
     local cache = owner.tlpCache
+    local overallSource = nil
+    local overallElapsed = nil
+    if owner.currentView == "OVERALL" and not owner.inCombat then
+        overallSource = owner.overallTimeline
+        overallElapsed = owner.overallCombatElapsed
+    end
     if cache and cache.events == events and cache.count == n and
-       cache.view == owner.currentView and cache.inCombat == (owner.inCombat and true or false) then
+       cache.view == owner.currentView and cache.inCombat == (owner.inCombat and true or false) and
+       cache.overallSource == overallSource and
+       cache.overallElapsed == overallElapsed then
         return cache
     end
 
     local indexedAt = GetTime and GetTime() or 0
     cache = {events=events, count=n, view=owner.currentView,
              inCombat=owner.inCombat and true or false, seconds={}, details={},
-             timeline=nil, maximum=0}
+             timeline=nil, maximum=0, overallSource=overallSource,
+             overallElapsed=overallElapsed}
     local i, e, sec, list
     for i=1,n do
         e = events[i]
@@ -62,6 +71,19 @@ local function TLP_Ensure(owner, events)
                 cache.seconds[sec] = list
             end
             list[table.getn(list)+1] = e
+        end
+    end
+    -- Historical Overall contains authoritative persisted buckets for fights
+    -- whose detailed events have been pruned from Recent/Archive. Page bounds
+    -- must include those buckets, not just the surviving runtime event list.
+    -- Never synthesize or persist events from an Overall summary bucket.
+    if overallSource then
+        cache.timeline = overallSource
+        local bucketSecond
+        for bucketSecond in pairs(overallSource) do
+            if type(bucketSecond) == "number" and bucketSecond > cache.maximum then
+                cache.maximum = bucketSecond
+            end
         end
     end
     owner.tlpCache = cache
@@ -92,6 +114,47 @@ function MT:GetDisplayTimeline()
     return cache.timeline
 end
 
+-- An Overall second may outlive its individual events. Provide exactly the
+-- quantities persisted in the authoritative Timeline bucket without guessing
+-- which dodge/parry/resist school generated them.
+local function TLP_OverallSummaryDetails(bucket)
+    return {
+        raw=tonumber(bucket.raw) or 0,
+        physicalRaw=tonumber(bucket.physicalRaw) or 0,
+        magicRaw=tonumber(bucket.magicRaw) or 0,
+        taken=tonumber(bucket.taken) or 0,
+        physicalTaken=tonumber(bucket.physicalTaken) or 0,
+        magicTaken=tonumber(bucket.magicTaken) or 0,
+        armor=tonumber(bucket.armor) or 0,
+        block=tonumber(bucket.block) or 0,
+        avoidance=tonumber(bucket.avoidance) or 0,
+        resist=tonumber(bucket.resist) or 0,
+        absorb=tonumber(bucket.absorb) or 0,
+        events=tonumber(bucket.events) or 0,
+        damageEvents=0,
+        dodge=0, parry=0, miss=0,
+        dodgeCount=0, parryCount=0, missCount=0,
+        partialBlock=0, fullBlock=0,
+        partialBlockCount=0, fullBlockCount=0,
+        physicalAbsorb=0, magicAbsorb=0, schools={},
+        flatDR=0, physicalDR=0, magicDR=0,
+        physicalFlatDR=0, magicFlatDR=0,
+        tlpSummaryOnly=true
+    }
+end
+
+local function TLP_ApplyOverallBucket(details, bucket)
+    -- The stored Overall bucket wins over any incomplete runtime-event subset.
+    -- These are the precise fields written by AddToTimelineBucket.
+    local names={"raw","physicalRaw","magicRaw","taken","physicalTaken",
+                 "magicTaken","armor","block","avoidance","resist","absorb","events"}
+    local i, name
+    for i=1,table.getn(names) do
+        name=names[i]
+        if bucket[name] ~= nil then details[name]=bucket[name] end
+    end
+end
+
 function MT:GetTimelineDetails(firstSecond,lastSecond)
     local cache = self.tlpCache
     if cache and type(firstSecond) == "number" and firstSecond == lastSecond
@@ -102,8 +165,21 @@ function MT:GetTimelineDetails(firstSecond,lastSecond)
             self.tlpStats.detailsHits = self.tlpStats.detailsHits + 1
             return detail
         end
+        local source = cache.seconds[firstSecond] or EMPTY
+        local overallBucket
+        if self.currentView == "OVERALL" and not self.inCombat and cache.timeline then
+            overallBucket = cache.timeline[firstSecond]
+        end
+        if overallBucket and table.getn(source) == 0 then
+            -- Older Overall seconds can have valid bars yet no retained events.
+            -- Bypass the event-only RC6 details function for those seconds.
+            detail = TLP_OverallSummaryDetails(overallBucket)
+            cache.details[firstSecond] = detail
+            self.tlpStats.overallSummaryBars = self.tlpStats.overallSummaryBars + 1
+            return detail
+        end
         local before = self.tlpQueryEvents
-        self.tlpQueryEvents = cache.seconds[firstSecond] or EMPTY
+        self.tlpQueryEvents = source
         -- The original RC6 implementations remain authoritative. Restrict
         -- their input; never approximate or reimplement mitigation formulas.
         local started = GetTime and GetTime() or 0
@@ -112,6 +188,7 @@ function MT:GetTimelineDetails(firstSecond,lastSecond)
         self.tlpStats.lastDetailsMs = self.tlpStats.lastDetailsMs +
             ((GetTime and GetTime() or started)-started)*1000
         if not ok then error(result) end
+        if overallBucket then TLP_ApplyOverallBucket(result, overallBucket) end
         cache.details[firstSecond] = result
         self.tlpStats.detailsBuilds = self.tlpStats.detailsBuilds + 1
         return result
@@ -160,6 +237,56 @@ function MT:UpdateTimelineWindow()
     return result
 end
 
+-- When saved Overall buckets outlive their detailed events, show only known
+-- summary quantities. Do not display made-up Dodge/Parry/Miss sub-breakdowns.
+local OldShowTimelineTooltip = MT.ShowTimelineTooltip
+function MT:ShowTimelineTooltip(owner, second, bucket)
+    if bucket and self.currentView == "OVERALL" and not self.inCombat then
+        local first = bucket.firstSecond or second or 0
+        local last = bucket.lastSecond or first
+        if first == last then
+            local details = self:GetTimelineDetails(first, last)
+            if details and details.tlpSummaryOnly then
+                local mode = self.timelineMode or "RAW"
+                local tip = self:GetAnalysisTooltip()
+                local function Line(label, value, r, g, b)
+                    tip:AddDoubleLine(label, self:FormatNumber(value),
+                        r or 0.85, g or 0.85, b or 0.85, 1,1,1)
+                end
+                tip:SetOwner(owner, "ANCHOR_CURSOR")
+                tip:SetText(mode.." Timeline - "..first.."s",1,0.82,0)
+                if mode == "PHYSICAL" then
+                    Line("Raw physical incoming",details.physicalRaw)
+                    Line("Physical stopped",math.max(0,details.physicalRaw-details.physicalTaken),0.35,0.85,0.35)
+                    Line("Physical damage taken",details.physicalTaken,1,0.35,0.3)
+                elseif mode == "MAGIC" then
+                    Line("Raw magic incoming",details.magicRaw)
+                    Line("Magic stopped",math.max(0,details.magicRaw-details.magicTaken),0.35,0.85,0.35)
+                    Line("Magic damage taken",details.magicTaken,1,0.35,0.3)
+                else
+                    Line("Raw incoming",details.raw,0.35,0.75,1)
+                    Line("Raw physical",details.physicalRaw)
+                    Line("Raw magic",details.magicRaw)
+                    tip:AddLine(" ")
+                    Line("Armor",details.armor,0.35,0.85,0.35)
+                    Line("Avoidance",details.avoidance,0.35,0.85,0.35)
+                    Line("Block",details.block,0.35,0.85,0.35)
+                    Line("Resisted",details.resist,0.35,0.85,0.35)
+                    Line("Absorbed",details.absorb,0.35,0.85,0.35)
+                    tip:AddLine(" ")
+                    Line("Damage stopped",math.max(0,details.raw-details.taken),0.35,0.85,0.35)
+                    Line("Damage taken",details.taken,1,0.35,0.3)
+                end
+                Line("Events",details.events)
+                tip:AddLine("Summary only: individual events no longer retained",1,0.72,0.3,1)
+                tip:Show()
+                return
+            end
+        end
+    end
+    return OldShowTimelineTooltip(self, owner, second, bucket)
+end
+
 function MT:CreateTimelineWindow()
     local frame = OldCreate(self)
     if frame and not frame.tlpHideHooked then
@@ -181,7 +308,8 @@ function MT:PrintTimelinePerf()
     local message = "TLP2 draws "..s.draws.." index "..s.indexBuilds..
        " timeline builds "..s.timelineBuilds.." hits "..s.timelineHits..
        " details built "..s.detailsBuilds.." hits "..s.detailsHits..
-       " events "..s.lastEventCount.." last "..floor(s.lastSeconds*1000+0.5).."ms"
+       " events "..s.lastEventCount.." summary bars "..s.overallSummaryBars..
+       " last "..floor(s.lastSeconds*1000+0.5).."ms"
     if DEFAULT_CHAT_FRAME then
         DEFAULT_CHAT_FRAME:AddMessage("MainTank "..message)
         DEFAULT_CHAT_FRAME:AddMessage("MainTank TLP2 last redraw total "..floor(s.lastTotalMs+0.5)..
