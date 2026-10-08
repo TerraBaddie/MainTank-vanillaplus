@@ -1,3 +1,20 @@
+MainTank VanillaPlus TLP1 - Timeline performance test branch
+==============================================================
+- UI/TimelinePerformance.lua indexes visible Timeline events by second before the
+  existing 60-bar redraw. The existing RC6 details and attribution methods are
+  preserved; they receive only the matching second's events during that bar.
+- Outside a one-second Timeline query, GetDisplayEvents remains unchanged.
+- Full event lists, fight totals, mitigation, Details, Pie, Archive/History
+  storage, saved-variable schema, live parser, SI2/DC2 restore are unchanged.
+- The temporary selected-minute index is released when Timeline is hidden.
+- OBS 27-mob 688K-damage stress reproduction: visible near-identical frame
+  stalls near 12.45, 17.32, 27.78, 37.75, and 39.53 seconds (~0.9s each).
+- Synthetic Lua regression: 4,200 events, 60 bars, simulated nested DR pass:
+  same per-minute RAW across five pages, 504,000 event visits reduced to
+  ~2,100 per populated minute; full accessor and cleanup tested.
+- TEST BUILD ONLY: in-game VanillaPlus 1.12.1 stress validation still required.
+- No package version bump until the change passes real-world regression.
+
 MainTank v1.2.65-VP3 VP3_LAYEREDSTOP3
 ========================================
 
