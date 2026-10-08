@@ -18,7 +18,9 @@ local OldCreate = MT.CreateTimelineWindow
 
 MT.tlpStats = {draws=0, indexBuilds=0, timelineBuilds=0,
                timelineHits=0, detailsBuilds=0, detailsHits=0,
-               lastSeconds=0, lastEventCount=0}
+               lastSeconds=0, lastEventCount=0, lastIndexMs=0,
+               lastTimelineMs=0, lastDetailsMs=0, lastTotalMs=0,
+               slowestTotalMs=0}
 
 local function TLP_Clear(owner)
     owner.tlpCache = nil
@@ -43,6 +45,7 @@ local function TLP_Ensure(owner, events)
         return cache
     end
 
+    local indexedAt = GetTime and GetTime() or 0
     cache = {events=events, count=n, view=owner.currentView,
              inCombat=owner.inCombat and true or false, seconds={}, details={},
              timeline=nil, maximum=0}
@@ -64,6 +67,7 @@ local function TLP_Ensure(owner, events)
     owner.tlpCache = cache
     owner.tlpStats.indexBuilds = owner.tlpStats.indexBuilds + 1
     owner.tlpStats.lastEventCount = n
+    owner.tlpStats.lastIndexMs = ((GetTime and GetTime() or indexedAt)-indexedAt)*1000
     return cache
 end
 
@@ -76,7 +80,10 @@ function MT:GetDisplayTimeline()
         self.tlpStats.timelineHits = self.tlpStats.timelineHits + 1
         return cache.timeline
     end
+    local started = GetTime and GetTime() or 0
     local timeline = OldGetTimeline(self)
+    self.tlpStats.lastTimelineMs = self.tlpStats.lastTimelineMs +
+        ((GetTime and GetTime() or started)-started)*1000
     cache.timeline = timeline or {}
     self.tlpStats.timelineBuilds = self.tlpStats.timelineBuilds + 1
     -- Event attribution in the original RC6 pass may have just upgraded old
@@ -99,8 +106,11 @@ function MT:GetTimelineDetails(firstSecond,lastSecond)
         self.tlpQueryEvents = cache.seconds[firstSecond] or EMPTY
         -- The original RC6 implementations remain authoritative. Restrict
         -- their input; never approximate or reimplement mitigation formulas.
+        local started = GetTime and GetTime() or 0
         local ok, result = pcall(OldGetDetails,self,firstSecond,lastSecond)
         self.tlpQueryEvents = before
+        self.tlpStats.lastDetailsMs = self.tlpStats.lastDetailsMs +
+            ((GetTime and GetTime() or started)-started)*1000
         if not ok then error(result) end
         cache.details[firstSecond] = result
         self.tlpStats.detailsBuilds = self.tlpStats.detailsBuilds + 1
@@ -113,6 +123,10 @@ function MT:UpdateTimelineWindow()
     if not self.timelineFrame then return OldUpdate(self) end
     local startTime = GetTime and GetTime() or 0
     local events = OldGetEvents(self) or EMPTY
+    local stats = self.tlpStats
+    stats.lastIndexMs = 0
+    stats.lastTimelineMs = 0
+    stats.lastDetailsMs = 0
     local cache = TLP_Ensure(self,events)
 
     -- Live combats can send dozens of events per second. The old RecordEvent
@@ -139,6 +153,10 @@ function MT:UpdateTimelineWindow()
     self.tlpLastDraw = startTime
     self.tlpStats.draws = self.tlpStats.draws + 1
     self.tlpStats.lastSeconds = ((GetTime and GetTime() or startTime)-startTime)
+    self.tlpStats.lastTotalMs = self.tlpStats.lastSeconds*1000
+    if self.tlpStats.lastTotalMs > self.tlpStats.slowestTotalMs then
+        self.tlpStats.slowestTotalMs = self.tlpStats.lastTotalMs
+    end
     return result
 end
 
@@ -164,5 +182,11 @@ function MT:PrintTimelinePerf()
        " timeline builds "..s.timelineBuilds.." hits "..s.timelineHits..
        " details built "..s.detailsBuilds.." hits "..s.detailsHits..
        " events "..s.lastEventCount.." last "..floor(s.lastSeconds*1000+0.5).."ms"
-    if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("MainTank "..message) end
+    if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("MainTank "..message)
+        DEFAULT_CHAT_FRAME:AddMessage("MainTank TLP2 last redraw total "..floor(s.lastTotalMs+0.5)..
+            "ms (index "..floor(s.lastIndexMs+0.5)..", timeline "..
+            floor(s.lastTimelineMs+0.5)..", 60 details "..floor(s.lastDetailsMs+0.5)..
+            "); worst "..floor(s.slowestTotalMs+0.5).."ms")
+    end
 end
